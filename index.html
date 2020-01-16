@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/jstat/latest/jstat.min.js"></script>
+  <style>
+    body { margin:15px;position:fixed;top:0;right:0;bottom:0;left:0; }
+    
+    .waffle {
+  display: flex;
+  flex-wrap: wrap;
+  width: 120px;
+}
+
+.block { 
+  width: 10px;
+  height: 10px;
+  margin: 1px;
+}
+</style>
+</head>
+<br>
+<h4>Isotypes Creator (Waffle Chart)</h4>
+<div>
+  <input type="range" id="start" name="volume"
+         min="0" max="100" value="21">
+  <label for="volume">	
+    	Percentile Rank (<span id="pcntlbl">50</span>%)
+  </label>
+</div> 
+<div class="waffle">
+</div>
+<br>
+<div class="waffleexplainer">
+  	<div id="betterthan">
+      This plan is <span style="color:red"> better than </span><span class="betterthanpcnt"></span>% of all plans
+  	</div>
+    <div id="worsethan">
+      This plan is <span style="color:gray"> worse than </span><span class="worsethanpcnt"></span>% of all plans
+  	</div>
+</div> 
+<br>
+<div id="bellcurve">
+  <h4>
+      Bell curve (Assumes 'normal' distribution)
+  	</h4>
+  <svg>
+  </svg>
+  <div id="betterthan">
+      This plan is <span style="color:red"> better than </span><span class="betterthanpcnt"></span>% of all plans
+  	</div>
+    <div id="worsethan">
+      This plan is <span style="color:gray"> worse than </span><span class="worsethanpcnt"></span>% of all plans
+  	</div>
+</div>
+<div id="stackedbar">
+  <h4>
+      Stacked Bar Approach
+  	</h4>
+  <svg>
+  </svg>
+  <div id="betterthan">
+      This plan is <span style="color:red"> better than </span><span class="betterthanpcnt"></span>% of all plans
+  	</div>
+    <div id="worsethan">
+      This plan is <span style="color:gray"> worse than </span><span class="worsethanpcnt"></span>% of all plans
+  	</div>
+</div>
+<body>
+  <script>
+  
+  d3.select("#start")	
+  	.on("change",function(d){
+    	console.log(d3.select(this).node().value)
+      updateWaffle(d3.select(this).node().value)
+      updatebar(+d3.select(this).node().value)
+      updateBell(d3.select(this).node().value)
+  })
+    
+  const waffle = d3.select('.waffle');
+	const numbers = d3.range(100);
+ 
+ 	waffle
+    .selectAll('.block')
+    .data(numbers)
+    .enter()
+    .append('div')
+    .attr('class', 'block')
+    .style('background-color', d => (d > 100-15 ? '#FE4A49' : '#CCCCCC'));
+	 
+  function updateWaffle(pcnt){
+    
+    d3.select("#start").node().value
+    
+    d3.selectAll('.block')
+      	.style('background-color', d => (d >= 100-pcnt ? '#FE4A49' : '#CCCCCC'));
+	
+    d3.select("#pcntlbl")
+    	.text(pcnt)
+    
+     	d3.selectAll(".betterthanpcnt").text(100-pcnt)
+      d3.selectAll(".worsethanpcnt").text(pcnt)
+  }
+    
+    var mean = 30 
+    var stddev = 15; 
+    
+    var array = Random_normal_Dist(mean, stddev);
+    
+    var margin = {top: 20, right: 30, bottom: 30, left: 40},
+    width = 500 - margin.left - margin.right,
+    height = 150 - margin.top - margin.bottom;
+
+	var x = d3.scaleLinear().rangeRound([0, width]);
+
+    var min_d = d3.min(array, function (d) {return d.q;}); 
+    var max_d = d3.max(array, function (d) {return d.q;});
+    var max_p = d3.max(array, function (d) {return d.p;});
+
+  x.domain([min_d, max_d]).nice;
+
+  var y = d3.scaleLinear()
+      .domain([0, max_p])
+      .range([height, 0]);
+
+  var svg = d3.select("#bellcurve").select("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var gX = svg.append("g")
+              .attr("class", "x axis")
+              .attr("transform", "translate(0," + height + ")")
+              .call(d3.axisBottom(x))
+  						.selectAll(".tick")
+  						.remove();
+ 
+  var line = d3.line()
+      .x(function (d) { return x(d.q); })
+      .y(function (d) { return y(d.p); });
+	
+    //draw a rect
+  svg.append("clipPath")        
+    .attr("id", "rect-clip")  
+    .append("rect")
+    .attr("class", "rect")
+    .attr("x",150)
+  	.attr("y",0)
+  	.attr("width",width)
+  	.attr("height",height)
+    .style("fill", "#FE4A49")
+  
+  //no clip path
+  svg.append("path")
+      .datum(array)
+      .attr("class", "line")
+      .attr("d", line)
+      .style("fill", "rgb(204, 204, 204)")
+
+   //no clip path
+  svg.append("path")
+      .datum(array)
+      .attr("class", "line")
+      .attr("d", line)
+      .style("fill", "#FE4A49")
+    	.attr("clip-path","url(#rect-clip)")
+ 
+  svg.append("line") 
+      .attr("id", "cutoffline")
+      .attr("x1", 150) 
+    	.attr("x2", 150)
+  		.attr("y1", -20) 
+    	.attr("y2", height)
+      .style("stroke", "#600000") 
+  
+  svg.append("text") 
+      .attr("id", "cutofflbl")
+  		.attr("dx",5)
+      .attr("x", 150)  
+  		.attr("y", -10)  
+  		.style("font-family","Franklin Gothic Book")
+  		.style("font-size","11px")
+      .style("fill", "#600000") 
+  		.text("This Plan")
+  
+  
+   //bell curve 
+    function Random_normal_Dist(mean, sd) {
+      data = [];
+      for (var i = mean - 4 * sd; i < mean + 4 * sd; i += 1) {
+          q = i
+          p = jStat.normal.pdf(i, mean, sd);
+          arr = {
+              "q": q,
+              "p": p
+          }
+          data.push(arr);
+      };
+      return data;
+  }
+    
+    /*  The following JavaScript functions for calculating normal and
+    chi-square probabilities and critical values were adapted by
+    John Walker from C implementations
+    written by Gary Perlman of Wang Institute, Tyngsboro, MA
+    01879.  Both the original C code and this JavaScript edition
+    are in the public domain.  */
+
+/*  POZ  --  probability of normal z value
+
+    Adapted from a polynomial approximation in:
+            Ibbetson D, Algorithm 209
+            Collected Algorithms of the CACM 1963 p. 616
+    Note:
+            This routine has six digit accuracy, so it is only useful for absolute
+            z values <= 6.  For z values > to 6.0, poz() returns 0.0.
+*/
+    var Z_MAX = 6;
+function poz(z) {
+
+    var y, x, w;
+
+    if (z == 0.0) {
+        x = 0.0;
+    } else {
+        y = 0.5 * Math.abs(z);
+        if (y > (Z_MAX * 0.5)) {
+            x = 1.0;
+        } else if (y < 1.0) {
+            w = y * y;
+            x = ((((((((0.000124818987 * w
+                     - 0.001075204047) * w + 0.005198775019) * w
+                     - 0.019198292004) * w + 0.059054035642) * w
+                     - 0.151968751364) * w + 0.319152932694) * w
+                     - 0.531923007300) * w + 0.797884560593) * y * 2.0;
+        } else {
+            y -= 2.0;
+            x = (((((((((((((-0.000045255659 * y
+                           + 0.000152529290) * y - 0.000019538132) * y
+                           - 0.000676904986) * y + 0.001390604284) * y
+                           - 0.000794620820) * y - 0.002034254874) * y
+                           + 0.006549791214) * y - 0.010557625006) * y
+                           + 0.011630447319) * y - 0.009279453341) * y
+                           + 0.005353579108) * y - 0.002141268741) * y
+                           + 0.000535310849) * y + 0.999936657524;
+        }
+    }
+    return z > 0.0 ? ((x + 1.0) * 0.5) : ((1.0 - x) * 0.5);
+}
+
+
+/*  CRITZ  --  Compute critical normal z value to
+               produce given p.  We just do a bisection
+               search for a value within CHI_EPSILON,
+               relying on the monotonicity of pochisq().  */
+
+function critz(p) {
+    var Z_EPSILON = 0.000001;     /* Accuracy of z approximation */
+    var minz = -Z_MAX;
+    var maxz = Z_MAX;
+    var zval = 0.0;
+    var pval;
+    if( p < 0.0 ) p = 0.0;
+    if( p > 1.0 ) p = 1.0;
+
+    while ((maxz - minz) > Z_EPSILON) {
+        pval = poz(zval);
+        if (pval > p) {
+            maxz = zval;
+        } else {
+            minz = zval;
+        }
+        zval = (maxz + minz) * 0.5;
+    }
+    return(zval);
+}
+    
+    function updateBell(pcnt){
+
+      var cutoff_Zscore = critz(pcnt/100);
+      var cutoff_val = cutoff_Zscore*stddev + mean;
+      
+      d3.select("#rect-clip").select("rect")
+        .attr("x",x(cutoff_val))
+        .attr("y",0)
+        .style("fill", "#FE4A49") 
+      
+      d3.select("#cutoffline") 
+        .attr("x1",x(cutoff_val))
+        .attr("x2",x(cutoff_val)) 
+      
+      d3.select("#cutofflbl") 
+        .attr("x",x(cutoff_val)) 
+      
+    }
+     
+  var barwidth = width 
+  var barheight = 50;
+  
+  var xscale = d3.scaleLinear()
+  	.range([0, barwidth])
+  	.domain([1, 100]);
+
+  var barsvg = d3.select("#stackedbar").select("svg")
+      .attr("width", barwidth)
+      .attr("height", barheight)
+    
+  barsvg.append("rect")
+  	.attr("fill","#CCCCCC")
+  	.attr("stroke","black")
+  	.attr("y",10)
+  	.attr("height",20)
+  	.attr("width",barwidth)
+  	 
+  barsvg.append("rect")
+  	.attr("id","rectFill")
+  	.attr("fill","#FE4A49")
+  	.attr("stroke","black")
+  	.attr("x",150)
+  	.attr("y",10)
+  	.attr("height",20)
+  	.attr("width",barwidth-150)
+  
+  barsvg.append("line")
+  	.attr("id","rectLine")
+  	.attr("fill","#FE4A49")
+  	.attr("stroke","black")
+  	.attr("x1",150)
+  	.attr("x2",150)
+  	.attr("y1",0)
+  	.attr("y2",50)
+  	.attr("width",barwidth-150)
+  
+  barsvg.style("overflow","visible")
+  
+  barsvg.append("text")
+  	.attr("fill","black") 
+    .attr("id","rectlbl")
+  	.attr("x",150)
+  	.attr("y",-5)
+  	.style("text-anchor","middle")
+  	.attr("width",barwidth-150)
+    .style("font-family","Franklin Gothic Book")
+  	.style("font-size","11px")
+    .style("fill", "#600000")
+  	.text("This Plan")
+  
+   barsvg.append("text").attr("id","rectlblworse")
+  	.attr("x",150)
+  	.attr("y",45)
+   	.attr("dx",5)
+  	.style("text-anchor","start")
+    .style("font-family","Franklin Gothic Book")
+  	.style("font-size","11px")
+    .style("fill", "#FE4A49")
+  	.text("Worse than 60% of plans")
+  
+  barsvg.append("text").attr("id","rectlblbetter")
+  	.attr("x",150)
+  	.attr("y",45)
+   	.attr("dx",-5)
+  	.style("text-anchor","end")
+    .style("font-family","Franklin Gothic Book")
+  	.style("font-size","11px")
+    .style("fill", "#8c8c8c")
+  	.text("Better than 40% of plans")
+  
+  function updatebar(pcnt){
+    
+    console.log(pcnt,xscale(pcnt))
+    
+    d3.select("#rectFill")
+  	.attr("x",xscale(pcnt)) 
+  	.attr("width",barwidth-xscale(pcnt))
+    
+    d3.select("#rectLine")
+  	.attr("x1",xscale(pcnt)) 
+    .attr("x2",xscale(pcnt))  
+    
+    d3.select("#rectlbl")
+  	.attr("x",xscale(pcnt)) 
+    
+    d3.select("#rectlblbetter")
+  	.attr("x",xscale(pcnt)) 
+  	.text("Better than "+(pcnt)+"% of plans")
+    
+     d3.select("#rectlblworse")
+  	.attr("x",xscale(pcnt)) 
+  	.text("Worse than "+(100-pcnt)+"% of plans")
+  }
+  
+  
+  </script>
+</body>
